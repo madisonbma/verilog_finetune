@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+# trained adapters and datasets can be large
+results/adapter/
+results/grpo_adapter/
+data/*.jsonl
+# but keep the results dir and small json scores
+!results/.gitkeep
+!results/*.json
+.huggingface/
+*.log

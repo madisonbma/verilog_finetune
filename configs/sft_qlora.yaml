@@ -1,0 +1,30 @@
+# All Phase-1 supervised fine-tuning settings live here so you can tweak
+# without editing code. Comments explain what each knob does.
+
+# --- model ---
+base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"   # start here; StarCoder2-7B is an alt
+load_in_4bit: true            # QLoRA: load the frozen base model in 4-bit (bitsandbytes)
+
+# --- LoRA adapter shape ---
+lora_r: 16                    # adapter "rank" / capacity. 8-32 typical. Higher = more capacity, more memory.
+lora_alpha: 32                # scaling; common rule of thumb is alpha = 2 * r
+lora_dropout: 0.05
+# which layers get adapters. These names are standard for Qwen/Llama-style models:
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# --- data ---
+dataset_path: "data/sft_dataset.jsonl"   # produced by data/prepare_data.py
+max_seq_length: 2048          # truncate examples longer than this (tokens)
+
+# --- training loop ---
+output_dir: "results/adapter"
+num_train_epochs: 1           # 1-3. Start with 1; Verilog datasets are small-ish.
+per_device_train_batch_size: 1   # raise if you have spare VRAM; lower if OOM
+gradient_accumulation_steps: 8   # effective batch = batch_size * this
+learning_rate: 0.0002         # 2e-4 is a standard LoRA starting point
+warmup_ratio: 0.03
+lr_scheduler_type: "cosine"
+logging_steps: 10
+save_steps: 200
+bf16: true                    # use bfloat16 compute on modern GPUs (A100+)
+seed: 42

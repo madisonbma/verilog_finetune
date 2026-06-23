@@ -1,0 +1,19 @@
+# Core HF stack
+transformers>=4.44
+datasets>=2.20
+accelerate>=0.33
+peft>=0.12            # LoRA / QLoRA adapters
+trl>=0.9             # SFTTrainer + GRPOTrainer
+bitsandbytes>=0.43   # 4-bit quantization (Linux + NVIDIA GPU only)
+
+# Faster inference for evaluation (optional but recommended)
+vllm>=0.5
+
+# Utilities
+pyyaml
+tqdm
+
+# NOTE: Verilog simulators (iverilog / verilator) are SYSTEM packages,
+# installed via apt in scripts/setup_gpu.sh, not via pip.
+# cocotb (optional, for Python testbenches):
+# cocotb>=1.9

@@ -1,0 +1,22 @@
+# Phase-3 (stretch) reinforcement-learning settings.
+# Here the model GENERATES Verilog and is rewarded by whether it SIMULATES correctly.
+
+base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+sft_adapter: "results/adapter"     # warm-start from your Phase-1 fine-tune
+load_in_4bit: true
+
+# GRPO samples several completions per prompt and compares their rewards.
+num_generations: 4            # completions sampled per prompt (the "group" in GRPO)
+max_prompt_length: 1024
+max_completion_length: 1024
+learning_rate: 0.000001       # RL needs a MUCH smaller LR than SFT (1e-6)
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+num_train_epochs: 1
+output_dir: "results/grpo_adapter"
+bf16: true
+seed: 42
+
+# reward shaping (see src/reward.py)
+reward_compile: 0.2           # partial credit for code that at least compiles
+reward_pass: 1.0             # full credit for code that passes the testbench
