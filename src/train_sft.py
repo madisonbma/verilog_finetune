@@ -1,10 +1,11 @@
 """
 Phase 1: QLoRA supervised fine-tuning.
 
-What this does, in one breath: load the base model in 4-bit, attach trainable
-LoRA adapters, then use TRL's SFTTrainer to make the model imitate the
-(instruction -> good Verilog) pairs in your dataset. The output is a small
-adapter saved to results/adapter/.
+Load the base model in 4-bit
+Attach trainable LoRA adapters
+Use TRL's SFTTrainer to make the model imitate the 
+    (instruction -> good Verilog) pairs in dataset. 
+The output is a small adapter saved to results/adapter/.
 
 Run:  python src/train_sft.py --config configs/sft_qlora.yaml
 """

@@ -1,0 +1,14 @@
+#To get into the machine after launching on Lambda
+ssh -i ~/.ssh/madima.pem ubuntu@150.136.146.147
+
+#Make sure everything is pushed, then:
+git clone --recurse-submodules https://github.com/madisonbma/verilog_finetune.git
+
+#Then run setup
+bash scripts/setup_gpu.sh 
+source .venv/bin/activate
+hf auth login 
+
+
+bash scripts/benchmark_base.sh     # → results/baseline_verilogeval.json
+

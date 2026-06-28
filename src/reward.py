@@ -10,9 +10,7 @@ It shells out to `iverilog` (compile) and `vvp` (run), which setup_gpu.sh
 installed. No AI here at all — just standard EDA tooling, scripted.
 """
 
-import os
-import subprocess
-import tempfile
+from utils import compile_and_simulate
 
 
 def evaluate_verilog(design_code, testbench_code, reward_compile=0.2, reward_pass=1.0, timeout=20):
@@ -28,44 +26,27 @@ def evaluate_verilog(design_code, testbench_code, reward_compile=0.2, reward_pas
     Reward shaping: partial credit for compiling, full credit for passing.
     Tune the weights in configs/grpo.yaml.
     """
-    with tempfile.TemporaryDirectory() as d:
-        design_path = os.path.join(d, "design.v")
-        tb_path = os.path.join(d, "tb.v")
-        out_path = os.path.join(d, "sim.out")
+    # Both files are in-memory strings here, so hand them to the shared iverilog
+    # primitive as (filename, code) tuples. -g2012 so SystemVerilog testbenches
+    # compile; auto-detect the top module.
+    status, stdout, _ = compile_and_simulate(
+        [("design.v", design_code), ("tb.v", testbench_code)],
+        extra_flags=["-g2012"], timeout=timeout,
+    )
+    if status == "fail_compile":
+        return 0.0, "fail_compile"
+    if status == "timeout":
+        return 0.0, "timeout"
 
-        with open(design_path, "w") as f:
-            f.write(design_code)
-        with open(tb_path, "w") as f:
-            f.write(testbench_code)
+    # status == "ran": decide pass/fail from the testbench output. The benchmark
+    # testbenches print a clear marker; treat a "passed" marker with no reported
+    # mismatch as success.
+    out = stdout.lower()
+    passed = ("passed" in out or "all tests passed" in out) and "mismatch" not in out
 
-        # 1. Compile with iverilog.
-        compile_proc = subprocess.run(
-            ["iverilog", "-o", out_path, design_path, tb_path],
-            capture_output=True, text=True, timeout=timeout,
-        )
-        if compile_proc.returncode != 0:
-            return 0.0, "fail_compile"
-
-        # 2. Run the compiled simulation with vvp.
-        try:
-            run_proc = subprocess.run(
-                ["vvp", out_path],
-                capture_output=True, text=True, timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            return 0.0, "timeout"
-
-        # 3. Decide pass/fail from the testbench output.
-        #    Convention here: the benchmark testbenches print a clear marker.
-        #    VerilogEval/RTLLM harnesses have their own check — adapt this to match
-        #    whichever you're scoring against. A common pattern is to treat the
-        #    absence of "mismatch"/"error" and presence of a "passed" marker as success.
-        stdout = run_proc.stdout.lower()
-        passed = ("passed" in stdout or "all tests passed" in stdout) and "mismatch" not in stdout
-
-        if passed:
-            return reward_pass, "pass"
-        return reward_compile, "fail_sim"   # partial credit: it at least compiled & ran
+    if passed:
+        return reward_pass, "pass"
+    return reward_compile, "fail_sim"   # partial credit: it at least compiled & ran
 
 
 # Convenience wrapper used by the GRPO trainer, which passes batches.

@@ -14,15 +14,9 @@ import json
 from datasets import load_dataset
 
 
-# TODO: confirm the current dataset id on huggingface.co before running.
-# RTLCoder publishes its training data; search the Hub for "RTLCoder" / "Verilog
-# instruction" and pick one. The mapping below assumes columns named
-# "Instruction" and "Response" — adjust to whatever the dataset actually uses.
-
 #Using RTLCoder for training data since formatted appropriately already.
 DEFAULT_DATASET = "Nellyw888/RTL-Coder2"  
-INSTRUCTION_COL = "Instruction"
-OUTPUT_COL = "Response"
+
 """
 FORMAT OF RTL-CODER2:
 [

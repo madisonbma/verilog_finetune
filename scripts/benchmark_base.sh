@@ -11,6 +11,7 @@ echo "    (no adapter = the untouched, pre-fine-tuning model)"
 python eval/run_eval.py \
     --model "$MODEL" \
     --benchmark verilogeval \
+    --completions-cache results/base_completions.json \
     --out results/baseline_verilogeval.json
 
 echo "==> Baseline written to results/baseline_verilogeval.json"

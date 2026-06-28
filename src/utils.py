@@ -102,3 +102,75 @@ def to_chat_prompt(tokenizer, instruction):
     return tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
+
+
+def compile_and_simulate(sources, top_module=None, timeout=20, extra_flags=None):
+    """
+    Compile Verilog with iverilog and run it with vvp. This is the one
+    benchmark-agnostic primitive underneath every scorer and the RL reward:
+    the caller supplies the source files and reads the returned stdout to decide
+    pass/fail however ITS testbench reports success (RTLLM prints "...Passed",
+    VerilogEval prints "Mismatches: 0", etc.).
+
+    sources: list of items compiled together in order, each either
+        - a (filename, code) tuple  -> written into a temp build dir (use this
+          for in-memory model completions and testbench strings), or
+        - a path (str / Path) to an existing file -> e.g. a benchmark's
+          testbench.v or _ref.sv already on disk.
+    top_module: value for iverilog's -s flag, or None to let iverilog
+        auto-detect the top (the module nothing else instantiates). Use None for
+        RTLLM, whose testbench top names vary (testbench / main / test_alu / ...).
+        VerilogEval would pass top_module="tb".
+    timeout: seconds allowed for EACH of the compile and run steps.
+    extra_flags: extra iverilog flags, e.g. ["-g2012"] for SystemVerilog tests.
+
+    Returns (status, stdout, stderr):
+        "fail_compile" -> iverilog returned nonzero, or compilation timed out
+                          (no simv produced); stderr holds the diagnostics.
+        "timeout"      -> compiled, but the simulation hung past `timeout`.
+        "ran"          -> compiled and simulated; inspect stdout for the verdict.
+    """
+    import os
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        compile_paths = []
+        for item in sources:
+            if isinstance(item, tuple):
+                filename, code = item
+                path = os.path.join(d, filename)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(code)
+                compile_paths.append(path)
+            else:
+                compile_paths.append(str(item))
+
+        out_path = os.path.join(d, "sim.out")
+        cmd = ["iverilog"]
+        if extra_flags:
+            cmd += extra_flags
+        if top_module:
+            cmd += ["-s", top_module]
+        cmd += ["-o", out_path] + compile_paths
+
+        # 1. Compile. A compile timeout means no simv, so treat it like a
+        #    compile failure (matches RTLLM's "syntax_success = simv produced").
+        try:
+            compile_proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return "fail_compile", "", "iverilog compile timed out"
+        if compile_proc.returncode != 0:
+            return "fail_compile", "", compile_proc.stderr
+
+        # 2. Simulate. A run timeout is usually an unintended infinite loop.
+        try:
+            run_proc = subprocess.run(
+                ["vvp", out_path], capture_output=True, text=True, timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return "timeout", "", ""
+
+        return "ran", run_proc.stdout, run_proc.stderr

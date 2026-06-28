@@ -1,0 +1,6 @@
+[submodule "verilog_eval"]
+	path = verilog_eval
+	url = https://github.com/NVlabs/verilog-eval.git
+[submodule "RTLLM"]
+	path = RTLLM
+	url = https://github.com/hkust-zhiyao/RTLLM.git
